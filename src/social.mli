@@ -21,7 +21,6 @@ type to_tell = {
 type contact = {
   last_seen: float;
   to_tell: to_tell list;
-  coucous : int;
 }
 
 type t
