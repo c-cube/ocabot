@@ -13,9 +13,9 @@ type t = {
 let default = {
   server = "irc.freenode.net";
   port = 6667;
-  username = "cube_bot";
-  realname = "cube_bot";
-  nick = "cube_bot";
+  username = "ocabot";
+  realname = "ocabot";
+  nick = "ocabot";
   channel = "#ocaml";
   factoids_file = "factoids.json";
 }

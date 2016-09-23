@@ -1,8 +1,8 @@
 opam-version: "1.2"
-name: "coucoubot"
+name: "ocabot"
 version: "dev"
-author: "Armael"
-maintainer: "Armael"
+authors: ["Armael" "c-cube"]
+maintainer: ["Armael" "c-cube"]
 build: [
     [make "build"]
 ]
@@ -12,7 +12,7 @@ install: [
 build-doc: [ make "doc" ]
 build-test: [ make "test" ]
 remove: [
-    ["rm" "%{bin}%/coucoubot"]
+    ["rm" "%{bin}%/ocabot"]
 ]
 depends: [
     "ocamlfind" {build}
@@ -25,11 +25,10 @@ depends: [
     "sequence"
     "uri"
     "cohttp"
-    "atdgen"
     "lambdasoup"
 ]
-tags: [ "coucou" "aop" ]
-homepage: "https://github.com/CoucouInc/coucoubot"
-bug-reports: "https://github.com/CoucouInc/coucoubot/issues"
-dev-repo: "https://github.com/CoucouInc/coucoubot"
+tags: [ "irc" "bot" ]
+homepage: "https://github.com/c-cube/ocabot"
+bug-reports: "https://github.com/c-cube/ocabot/issues"
+dev-repo: "https://github.com/c-cube/ocabot"
 

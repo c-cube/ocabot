@@ -7,7 +7,7 @@
 #require "yojson";;
 #require "containers";;
 #directory "_build/src";;
-#load "coucoulib.cma";;
+#load "ocaobtlib.cma";;
 
 let s = CCIO.with_in "old_dump" CCIO.read_lines_l;;
 let l = CCList.filter_map Factoids.parse_op s;;
