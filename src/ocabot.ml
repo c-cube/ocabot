@@ -3,6 +3,7 @@ open Lwt.Infix
 let all_ : Plugin.t list = [
   Social.plugin;
   Factoids.plugin;
+  Hello.plugin;
 ]
 
 let main conf : unit Lwt.t =
