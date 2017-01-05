@@ -93,8 +93,8 @@ let of_conn c : t =
       Irc_client_lwt.listen ~connection
         ~callback:(fun _ msg_or_err ->
           match msg_or_err with
-            | `Ok msg -> Signal.send messages msg
-            | `Error err -> Printf.eprintf "%s\n%!" err; Lwt.return ()) >>= fun () ->
+            | Ok msg -> Signal.send messages msg
+            | Error err -> Printf.eprintf "%s\n%!" err; Lwt.return ()) () >>= fun () ->
       Irc_client_lwt.send_quit ~connection
 
     let connection =
