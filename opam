@@ -4,15 +4,15 @@ version: "dev"
 authors: ["Armael" "c-cube"]
 maintainer: ["Armael" "c-cube"]
 build: [
-    [make "build"]
+    [make]
 ]
 install: [
-    [make "install"]
+    ["cp" "ocabot.native" "%{bin}%/ocabot"]
 ]
 build-doc: [ make "doc" ]
 build-test: [ make "test" ]
 remove: [
-    ["rm" "%{bin}%/ocabot"]
+    ["rm" "-f" "%{bin}%/ocabot"]
 ]
 depends: [
     "ocamlfind" {build}
@@ -20,13 +20,10 @@ depends: [
     "base-unix"
     "lwt"
     "irc-client" { >= "0.4.0" }
-    "ocaml-tls"
+    "tls"
     "yojson"
     "containers"
     "sequence"
-    "uri"
-    "cohttp"
-    "lambdasoup"
 ]
 tags: [ "irc" "bot" ]
 homepage: "https://github.com/c-cube/ocabot"
