@@ -18,28 +18,63 @@ type t = {
 let make ?(descr="") ?(prio=99) ~name f =
   { descr; prio; name; match_=f; }
 
+let extract_hl s =
+  try
+    let i = String.rindex s '>' in
+    if i < String.length s-1 then (
+      let hl =
+        String.sub s (i+1) (String.length s-i-1) |> String.trim
+      in
+      let s = String.sub s 0 i |> String.trim in
+      Some (s, hl)
+    ) else None
+  with Not_found -> None
+
+let match_prefix1_full ~prefix msg : (string * string option) option =
+  let re = Str.regexp (Printf.sprintf "^![ ]*%s\\b[ ]*\\(.*\\)$" prefix) in
+  begin match Prelude.re_match1 Prelude.id re msg.Core.message with
+    | None -> None
+    | Some matched ->
+      let matched = String.trim matched in
+      match extract_hl matched with
+        | None -> Some (matched, None)
+        | Some (a,b) -> Some (a, Some b)
+  end
+
 let match_prefix1 ~prefix msg =
-  let re = Str.regexp (Printf.sprintf "^![ ]*%s[ ]*\\(.*\\)$" prefix) in
-  Prelude.re_match1 Prelude.id re msg.Core.message
+  Prelude.map_opt fst (match_prefix1_full ~prefix msg)
 
 exception Fail of string
 
-let make_simple_l ?descr ?prio ~prefix f : t =
+let make_simple_inner_ ~query ?descr ?prio ~prefix f : t =
   let match_ (module C:Core.S) msg =
-    match match_prefix1 ~prefix msg with
+    match match_prefix1_full ~prefix msg with
       | None -> Cmd_skip
-      | Some sub ->
+      | Some (sub, hl) ->
+        (* Log.logf "command `%s` matched with %s, hl=%s"
+          prefix sub (match hl with None -> "none" | Some h -> h); *)
         try
           let fut =
             f msg sub >>= fun lines ->
-            C.send_notice_l ~target:(Core.reply_to msg)
-              ~messages:lines
+            let lines = match hl with
+              | None -> lines
+              | Some hl -> List.map (fun line -> hl ^ ": " ^ line) lines
+            in
+            let target = if query then Core.nick msg else Core.reply_to msg in
+            let delay = if query then Some 0.5 else None in
+            C.send_privmsg_l_nolimit ?delay ~target ~messages:lines ()
           in
           Cmd_match fut
         with Fail msg ->
           Cmd_fail msg
   in
   make ?descr ?prio ~name:prefix match_
+
+let make_simple_l ?descr ?prio ~prefix f : t =
+  make_simple_inner_ ~query:false ?descr ?prio ~prefix f
+
+let make_simple_query_l ?descr ?prio ~prefix f : t =
+  make_simple_inner_ ~query:true ?descr ?prio ~prefix f
 
 let make_simple ?descr ?prio ~prefix f : t =
   make_simple_l ?descr ?prio ~prefix

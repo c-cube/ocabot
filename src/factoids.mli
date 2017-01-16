@@ -17,20 +17,22 @@ type op =
   | Incr of key
   | Decr of key
 
-val parse_op : string -> op option
+val parse_op : string -> (op * string option) option
+(** op + hilight *)
 
 val string_of_value : value -> string
 val string_of_op : op -> string
 
 val empty : t
 
+val mem : key -> t -> bool
 val get : key -> t -> value
 val set : factoid -> t -> t
 val append : factoid -> t -> t
 val incr : key -> t -> int option * t
 val decr : key -> t -> int option * t
 
-val search : string list -> t -> value
+val search : string list -> t -> string list
 
 val read_file : file:string -> t Lwt.t
 val write_file : file:string -> t -> unit Lwt.t

@@ -17,6 +17,9 @@ val is_chan : string -> bool
 val reply_to : privmsg -> string
 (** find whom to reply to *)
 
+val nick : privmsg -> string
+(** The author of the message *)
+
 val privmsg_of_msg : Msg.t -> privmsg option
 
 val string_of_privmsg : privmsg -> string
@@ -38,6 +41,15 @@ module type S = sig
 
   val send_privmsg_l :
     target:string -> messages:string list -> unit Lwt.t
+
+  val send_privmsg_l_nolimit :
+    ?delay:float ->
+    target:string ->
+    messages:string list ->
+    unit ->
+    unit Lwt.t
+  (** Version of {!send_privmsg_l} that does not enforce cut threshold.
+      @param delay optional delay between each sent message *)
 
   val send_privmsg :
     target:string -> message:string -> unit Lwt.t

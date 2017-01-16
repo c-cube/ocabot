@@ -46,14 +46,18 @@ let mk_factoid key value =
   try {key; value = Int (int_of_string value)}
   with Failure _ -> {key; value = StrList [value]}
 
-let re_set = Str.regexp "^![ ]*\\([^!=+ -]+\\)[ ]*=\\(.*\\)$"
-let re_set_force = Str.regexp "^![ ]*\\([^!=+ -]+\\)[ ]*:=\\(.*\\)$"
-let re_append = Str.regexp "^![ ]*\\([^!=+ -]+\\)[ ]*\\+=\\(.*\\)$"
-let re_get = Str.regexp "^![ ]*\\([^!=+ -]+\\)[ ]*$"
-let re_incr = Str.regexp "^![ ]*\\([^!=+ -]+\\)[ ]*\\+\\+[ ]*$"
-let re_decr = Str.regexp "^![ ]*\\([^!=+ -]+\\)[ ]*--[ ]*$"
+let re_set = Str.regexp "^![ ]*\\([^!=+ -:]+\\)[ ]*=\\(.*\\)$"
+let re_set_force = Str.regexp "^![ ]*\\([^!=+ -:]+\\)[ ]*:=\\(.*\\)$"
+let re_append = Str.regexp "^![ ]*\\([^!=+ -:]+\\)[ ]*\\+=\\(.*\\)$"
+let re_get = Str.regexp "^![ ]*\\([^!= :]+\\)[ ]*$"
+let re_incr = Str.regexp "^![ ]*\\([^!=+ -:]+\\)[ ]*\\+\\+[ ]*$"
+let re_decr = Str.regexp "^![ ]*\\([^!=+ -:]+\\)[ ]*--[ ]*$"
 
-let parse_op msg : op option =
+let parse_op msg : (op * string option) option =
+  let msg, hl = match Command.extract_hl msg with
+    | None -> msg, None
+    | Some (a,b) -> a, Some b
+  in
   let open Option in
   let mk_get k = Get (mk_key k) in
   let mk_set k v = Set (mk_factoid k v) in
@@ -61,19 +65,23 @@ let parse_op msg : op option =
   let mk_append k v = Append (mk_factoid k v) in
   let mk_incr k = Incr (mk_key k) in
   let mk_decr k = Decr (mk_key k) in
-  (re_match2 mk_append re_append msg)
-  <+>
-  (re_match2 mk_set re_set msg)
-  <+>
-  (re_match2 mk_set_force re_set_force msg)
-  <+>
-  (re_match1 mk_get re_get msg)
-  <+>
-  (re_match1 mk_incr re_incr msg)
-  <+>
-  (re_match1 mk_decr re_decr msg)
-  <+>
-  None
+  if String.contains msg '\x01' then None
+  else
+  (
+    (re_match2 mk_append re_append msg)
+    <+>
+      (re_match2 mk_set re_set msg)
+    <+>
+      (re_match2 mk_set_force re_set_force msg)
+    <+>
+      (re_match1 mk_get re_get msg)
+    <+>
+      (re_match1 mk_incr re_incr msg)
+    <+>
+      (re_match1 mk_decr re_decr msg)
+    <+>
+      None
+  ) |> Prelude.map_opt (fun x->x, hl)
 
 (* read the json file *)
 let read_json (file:string) : json option Lwt.t =
@@ -133,33 +141,30 @@ let decr key (fcs:t): int option * t =
     (Some count, StrMap.add key {key; value = Int count} fcs)
   | _ -> (None, fcs)
 
-let search tokens (fcs:t): value =
-  (* does the pair [key, value] match the given token? *)
-  let tok_matches key value tok =
-    CCString.mem ~sub:tok key ||
-    begin match value with
-      | Int i -> key = string_of_int i
-      | StrList l ->
-        List.exists
-          (fun s -> CCString.mem ~sub:tok s)
-          l
-    end
+let search tokens (fcs:t): string list =
+  (* list pairs [key, value] that match all the given tokens? *)
+  let check_str s tok = CCString.mem ~sub:tok s in
+  let check_int i tok = tok = string_of_int i in
+  let mk_pair k v = Printf.sprintf "%s -> %s" k v in
+  let tok_matches key value : string list = match value with
+    | Int i ->
+      if List.for_all (fun tok -> check_str key tok || check_int i tok) tokens
+      then [mk_pair key (string_of_int i)]
+      else []
+    | StrList l ->
+      CCList.filter_map
+        (fun sub ->
+           if List.for_all
+               (fun tok -> check_str key tok || check_str sub tok)
+               tokens
+           then Some (mk_pair key sub)
+           else None)
+        l
   in
-  let matches =
-    StrMap.fold
-      (fun _ {key; value} choices ->
-         if List.for_all (tok_matches key value) tokens
-         then ("!"^key, value) :: choices
-         else choices)
-      fcs []
-    |> (function
-      | [] -> []
-      | [k,v] -> [k ^ " -> " ^ string_of_value v] (* keep result *)
-      | l -> List.map fst l
-    )
-
-  in
-  StrList [Prelude.string_list_to_string matches]
+  StrMap.fold
+    (fun _ {key; value} choices ->
+       List.rev_append (tok_matches key value) choices)
+    fcs []
 
 let random (fcs:t): string =
   let l = StrMap.to_list fcs in
@@ -247,32 +252,73 @@ let init _ config : state Lwt.t =
   reload state >|= fun () ->
   state
 
-let msg_of_value (v:value): string option = match v with
+let pick_list (l:'a list): 'a option = match l with
+  | [] -> None
+  | [message] -> Some message
+  | l -> Some (DistribM.uniform l |> DistribM.run)
+
+let msg_of_value_pick (v:value): string option = match v with
   | Int i -> Some (string_of_int i)
-  | StrList [] -> None
-  | StrList [message] -> Some message
-  | StrList l -> Some (DistribM.uniform l |> DistribM.run)
+  | StrList l -> pick_list l
+
+(* maximum size of returned lists *)
+let list_size_limit = 4
+
+let limit_list l =
+  let n = List.length l in
+  if n > list_size_limit
+  then CCList.take list_size_limit l @ ["…"]
+  else l
+
+(* tokenize message into search tokens *)
+let search_tokenize s =
+  String.trim s
+  |> Str.split (Str.regexp "[ \t]+")
 
 let cmd_search state =
-  Command.make_simple ~descr:"search in factoids" ~prefix:"search" ~prio:10
+  Command.make_simple_l ~descr:"search in factoids" ~prefix:"search" ~prio:10
     (fun _ s ->
-       let tokens =
-         String.trim s
-         |> Str.split (Str.regexp "[ \t]+")
-       in
-       search tokens state.st_cur |> msg_of_value |> Lwt.return
+       let tokens = search_tokenize s in
+       search tokens state.st_cur
+       |> limit_list
+       |> Lwt.return
+    )
+
+let cmd_search_all state =
+  Command.make_simple_query_l
+    ~descr:"search all matches in factoids (reply in pv)"
+    ~prefix:"search_all" ~prio:10
+    (fun _ s ->
+       let tokens = search_tokenize s in
+       search tokens state.st_cur
+       |> Lwt.return
     )
 
 let cmd_see state =
-  Command.make_simple ~descr:"see a factoid's content" ~prefix:"see" ~prio:10
+  Command.make_simple_l ~descr:"see a factoid's content" ~prefix:"see" ~prio:10
     (fun _ s ->
        let v = get (mk_key s) state.st_cur in
        let msg = match v with
-         | Int i -> string_of_int i
-         | StrList [] -> "not found."
-         | StrList l -> Prelude.string_list_to_string l
+         | Int i -> [string_of_int i]
+         | StrList [] -> ["not found."]
+         | StrList l -> limit_list l
        in
-       Some msg |> Lwt.return
+       Lwt.return msg
+    )
+
+let cmd_see_all state =
+  Command.make_simple_query_l
+    ~descr:"see all of a factoid's content (in pv)"
+    ~prefix:"see_all"
+    ~prio:10
+    (fun _ s ->
+       let v = get (mk_key s) state.st_cur in
+       let msg = match v with
+         | Int i -> [string_of_int i]
+         | StrList [] -> ["not found."]
+         | StrList l -> l
+       in
+       Lwt.return msg
     )
 
 let cmd_random state =
@@ -292,14 +338,18 @@ let cmd_factoids state =
   let reply (module C:Core.S) msg =
     let target = Core.reply_to msg in
     let matched x = Command.Cmd_match x in
-    let reply_value (v:value) = match v with
+    let add_hl hl line = match hl with
+      | None -> line
+      | Some x -> x ^ ": " ^ line
+    in
+    let reply_value ~hl (v:value) = match v with
       | Int i ->
         C.send_notice ~target ~message:(string_of_int i) |> matched
       | StrList [] -> Lwt.return_unit |> matched
       | StrList [message] ->
         C.send_notice ~target ~message |> matched
       | StrList l ->
-        let message = DistribM.uniform l |> DistribM.run in
+        let message = DistribM.uniform l |> DistribM.run |> add_hl hl in
         C.send_notice ~target ~message |> matched
     and count_update_message (k: key) = function
       | None -> Lwt.return_unit
@@ -308,28 +358,28 @@ let cmd_factoids state =
           ~message:(Printf.sprintf "%s : %d" (k :> string) count)
     in
     let op = parse_op msg.Core.message in
-    CCOpt.iter (fun c -> Log.logf "parsed command `%s`" (string_of_op c)) op;
+    CCOpt.iter (fun (c,_) -> Log.logf "parsed command `%s`" (string_of_op c)) op;
     begin match op with
-      | Some (Get k) ->
-        reply_value (get k state.st_cur)
-      | Some (Set f) ->
+      | Some (Get k, hl) ->
+        reply_value ~hl (get k state.st_cur)
+      | Some (Set f, _) ->
         if mem f.key state.st_cur then (
           C.talk ~target Talk.Err |> matched
         ) else (
           state.st_cur <- set f state.st_cur;
           (save state >>= fun () -> C.talk ~target Talk.Ack) |> matched
         )
-      | Some (Set_force f) ->
+      | Some (Set_force f, _) ->
         state.st_cur <- set f state.st_cur;
         (save state >>= fun () -> C.talk ~target Talk.Ack) |> matched
-      | Some (Append f) ->
+      | Some (Append f, _) ->
         state.st_cur <- append f state.st_cur;
         (save state >>= fun () -> C.talk ~target Talk.Ack) |> matched
-      | Some (Incr k) ->
+      | Some (Incr k, _) ->
         let count, state' = incr k state.st_cur in
         state.st_cur <- state';
         (save state >>= fun () -> count_update_message k count) |> matched
-      | Some (Decr k) ->
+      | Some (Decr k, _) ->
         let count, state' = decr k state.st_cur in
         state.st_cur <- state';
         (save state >>= fun () -> count_update_message k count) |> matched
@@ -338,25 +388,26 @@ let cmd_factoids state =
   in
   Command.make
     ~name:"factoids" ~prio:80 reply
-    ~descr:"factoids, triggered by the following commands:
-
-    - `!foo` will retrieve one of the factoids associated with `foo`, if any
-    - `!foo = bar` maps `foo` to `bar`, unless `foo` is mapped yet
-      (in which case it fails)
-    - `!foo += bar` adds `bar` to the mappings of `foo`
-    - `!foo := bar` maps `foo` to `bar` even if `foo` is already mapped
+    ~descr:"factoids, triggered by the following commands:\n\
+    \n\
+    - `!foo` will retrieve one of the factoids associated with `foo`, if any\n\
+    - `!foo = bar` maps `foo` to `bar`, unless `foo` is mapped yet\n\
+      (in which case it fails)\n\
+    - `!foo += bar` adds `bar` to the mappings of `foo`\n\
+    - `!foo := bar` maps `foo` to `bar` even if `foo` is already mapped\n\
     "
 
 let commands state: Command.t list =
   [ cmd_factoids state;
     cmd_search state;
+    cmd_search_all state;
     cmd_reload state;
     cmd_see state;
+    cmd_see_all state;
     cmd_random state;
   ]
 
 let plugin : Plugin.t =
-  let module P = Plugin in
   (* create state *)
   let cleanup state = save state in
-  P.stateful ~init ~stop:cleanup commands
+  Plugin.stateful ~init ~stop:cleanup commands
