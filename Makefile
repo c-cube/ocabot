@@ -1,4 +1,4 @@
-TARGETS = src/ocabot.native src/ocabotlib.cma src/ocabotlib.cmxa src/ocabotlib.cmxs
+TARGETS = src/ocabot.native
 
 all:
 	ocamlbuild -cflag -safe-string -use-ocamlfind $(TARGETS)

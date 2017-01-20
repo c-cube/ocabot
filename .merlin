@@ -1,9 +1,5 @@
 S src
 B _build/src
-PKG irc-client.lwt
-PKG str
-PKG num
-PKG containers
-PKG yojson
-PKG sequence
+PKG lwt
+PKG calculon
 FLG -w +a-4-44-48

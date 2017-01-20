@@ -1,3 +1,3 @@
 <src>: include
-<**/*>: package(irc-client.tls, lwt, str, num, containers, yojson, sequence)
+<**/*>: package(calculon)
 true: warn(+a-4-44-48), color(always), bin_annot
