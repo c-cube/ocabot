@@ -4,10 +4,12 @@ module C = Calculon
 let all_ : C.Plugin.t list = [
   C.Plugin_social.plugin;
   C.Plugin_factoids.plugin;
+  C.Plugin_state.plugin;
   Hello.plugin;
 ]
 
 let config = {
+  C.Config.default with
   C.Config.
   server = "irc.freenode.net";
   port = 7000;
@@ -15,7 +17,6 @@ let config = {
   realname = "ocabot";
   nick = "ocabot";
   channel = "#ocaml";
-  factoids_file = "factoids.json";
 }
 
 let () =
