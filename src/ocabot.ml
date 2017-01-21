@@ -7,7 +7,19 @@ let all_ : C.Plugin.t list = [
   Hello.plugin;
 ]
 
+let config = {
+  C.Config.
+  server = "irc.freenode.net";
+  port = 7000;
+  username = "ocabot";
+  realname = "ocabot";
+  nick = "ocabot";
+  channel = "#ocaml";
+  factoids_file = "factoids.json";
+}
+
 let () =
-  let conf = C.Config.of_argv () in
-  C.Run_main.main conf all_ |> Lwt_main.run
+  (* update with CLI parameters *)
+  let config = C.Config.parse config Sys.argv in
+  C.Run_main.main config all_ |> Lwt_main.run
 
