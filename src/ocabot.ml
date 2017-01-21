@@ -20,7 +20,11 @@ let config = {
 }
 
 let () =
-  (* update with CLI parameters *)
-  let config = C.Config.parse config Sys.argv in
-  C.Run_main.main config all_ |> Lwt_main.run
+  try
+    (* update with CLI parameters *)
+    let config = C.Config.parse config Sys.argv in
+    C.Run_main.main config all_ |> Lwt_main.run
+  with
+    | Arg.Help msg -> print_endline msg
+    | Arg.Bad msg -> prerr_endline msg; exit 1
 
