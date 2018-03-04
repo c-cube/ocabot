@@ -11,3 +11,6 @@ qtest*
 *.html
 *_j.*
 *_t.*
+*.install
+.merlin
+*.json
