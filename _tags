@@ -1,3 +1,0 @@
-<src>: include
-<**/*>: package(calculon)
-true: warn(+a-4-44-48), color(always), bin_annot

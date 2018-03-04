@@ -1,0 +1,9 @@
+
+(jbuild_version 1)
+
+(executable
+  ((name ocabot)
+   (public_name ocabot)
+   (flags (:standard -w +a-4-44-48-29))
+   (libraries (calculon))
+   ))
