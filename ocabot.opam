@@ -1,21 +1,14 @@
-opam-version: "1.2"
+opam-version: "2.0"
 name: "ocabot"
 version: "dev"
+synopsis: "IRC bot for #OCaml on freenode"
 authors: ["Armael" "c-cube"]
 maintainer: ["Armael" "c-cube"]
 build: [
-    [make]
-]
-install: [
-    ["cp" "ocabot.native" "%{bin}%/ocabot"]
-]
-build-doc: [ make "doc" ]
-build-test: [ make "test" ]
-remove: [
-    ["rm" "-f" "%{bin}%/ocabot"]
+    ["dune" "build" "-p" name "-j" jobs]
 ]
 depends: [
-    "ocamlfind" {build}
+    "dune" {build}
     "base-bytes"
     "base-unix"
     "lwt"
@@ -24,5 +17,5 @@ depends: [
 tags: [ "irc" "bot" ]
 homepage: "https://github.com/c-cube/ocabot"
 bug-reports: "https://github.com/c-cube/ocabot/issues"
-dev-repo: "https://github.com/c-cube/ocabot"
+dev-repo: "git+https://github.com/c-cube/ocabot"
 
