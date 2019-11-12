@@ -12,7 +12,7 @@ depends: [
     "base-bytes"
     "base-unix"
     "lwt"
-    "calculon"
+    "calculon" { >= "0.5" & < "0.6" }
 ]
 tags: [ "irc" "bot" ]
 homepage: "https://github.com/c-cube/ocabot"
