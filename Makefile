@@ -15,3 +15,5 @@ doc:
 backups:
 	#@echo "doing backups of all .json files…"
 	./tools/save.sh *.json
+
+.PHONY: backups
