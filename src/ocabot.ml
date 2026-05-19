@@ -26,17 +26,17 @@ let config =
 
 let () =
   Logs.set_reporter (Logs.format_reporter ());
-  (try
-     let config = C.Config.parse config Sys.argv in
-     Logs.set_level ~all:true (Some config.C.Config.log_level);
-     Logs.info (fun k -> k "start ocabot");
-     Eio_posix.run @@ fun env ->
-     Eio.Switch.run @@ fun sw ->
-     let net = Eio.Stdenv.net env in
-     let clock = Eio.Stdenv.clock env in
-     C.Run_main.main ~sw ~net ~clock config all_
-   with
+  try
+    let config = C.Config.parse config Sys.argv in
+    Logs.set_level ~all:true (Some config.C.Config.log_level);
+    Logs.info (fun k -> k "start ocabot");
+    Eio_posix.run @@ fun env ->
+    Eio.Switch.run @@ fun sw ->
+    let net = Eio.Stdenv.net env in
+    let clock = Eio.Stdenv.clock env in
+    C.Run_main.main ~sw ~net ~clock config all_
+  with
   | Arg.Help msg -> print_endline msg
   | Arg.Bad msg ->
     prerr_endline msg;
-    exit 1)
+    exit 1

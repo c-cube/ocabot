@@ -11,19 +11,17 @@ let make_cmd (db : DB.db) : Command.t =
   Command.make_simple_l ~cmd:"change"
     ~descr:
       "search OCaml changelog: !change <query> [from:<author>] [pr:<num>] \
-       [ver:<version>]"
-    (fun _msg raw ->
+       [ver:<version>]" (fun _msg raw ->
       let raw = String.trim raw in
       let filters = Changelog_db.parse_query raw in
       match Changelog_db.search db filters with
       | exception exn ->
         [
-          Printf.sprintf "Error querying changelog: %s"
-            (Printexc.to_string exn);
+          Printf.sprintf "Error querying changelog: %s" (Printexc.to_string exn);
         ]
       | rows ->
-        Changelog_db.format_results ~raw ~limit:Changelog_db.max_results
-          filters rows)
+        Changelog_db.format_results ~raw ~limit:Changelog_db.max_results filters
+          rows)
 
 let open_db () : DB.db =
   let db = DB.db_open db_file in

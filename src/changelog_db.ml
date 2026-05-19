@@ -1,5 +1,5 @@
-(** Core changelog DB logic: schema, query parsing, search, formatting.
-    No dependency on Calculon — importable from tests. *)
+(** Core changelog DB logic: schema, query parsing, search, formatting. No
+    dependency on Calculon — importable from tests. *)
 
 module DB = Sqlite3
 
@@ -58,7 +58,7 @@ type entry = {
   text: string;
   breaking: bool;
   authors: string;
-  prs: string; (** comma-separated PR numbers *)
+  prs: string;  (** comma-separated PR numbers *)
 }
 
 let insert_entry db (e : entry) =
@@ -71,7 +71,12 @@ let insert_entry db (e : entry) =
   DB.bind_text stmt 2 e.version_full |> check_db db;
   DB.bind_text stmt 3 e.category |> check_db db;
   DB.bind_text stmt 4 e.text |> check_db db;
-  DB.bind_int stmt 5 (if e.breaking then 1 else 0) |> check_db db;
+  DB.bind_int stmt 5
+    (if e.breaking then
+       1
+     else
+       0)
+  |> check_db db;
   DB.bind_text stmt 6 e.authors |> check_db db;
   DB.bind_text stmt 7 e.prs |> check_db db;
   DB.step stmt |> check_db db;
@@ -83,8 +88,8 @@ type filters = {
   fts_query: string;
       (** free-text terms forwarded to FTS5; empty means "match all" *)
   author: string option;  (** [from:X] — substring match on authors field *)
-  pr: string option;      (** [pr:N]   — exact PR number in prs field *)
-  ver: string option;     (** [ver:V]  — prefix match on version field *)
+  pr: string option;  (** [pr:N] — exact PR number in prs field *)
+  ver: string option;  (** [ver:V] — prefix match on version field *)
 }
 
 let re_filter =
@@ -120,7 +125,7 @@ type result_row = {
   breaking: bool;
   authors: string;
   prs: string;
-  snippet: string; (** FTS snippet or trimmed text *)
+  snippet: string;  (** FTS snippet or trimmed text *)
 }
 
 let max_results = 3
@@ -148,8 +153,7 @@ let search ?(limit = max_results) (db : DB.db) (f : filters) : result_row list =
   | Some p ->
     (* The prs column is a comma-separated list; match the number exactly,
        handling first/last/only positions without allocating a split list. *)
-    add_where
-      {|(',' || e.prs || ',') LIKE ('%,' || ? || ',%')|};
+    add_where {|(',' || e.prs || ',') LIKE ('%,' || ? || ',%')|};
     bind p);
 
   (match f.ver with
@@ -181,31 +185,31 @@ let search ?(limit = max_results) (db : DB.db) (f : filters) : result_row list =
         extra limit
   in
   let stmt = DB.prepare db sql in
-  (try
-     let idx = ref 1 in
-     Queue.iter
-       (fun v ->
-         DB.bind_text stmt !idx v |> check_db db;
-         incr idx)
-       params;
-     let rows = ref [] in
-     while DB.step stmt = DB.Rc.ROW do
-       rows :=
-         {
-           version = DB.column_text stmt 0;
-           category = DB.column_text stmt 1;
-           breaking = DB.column_int stmt 2 = 1;
-           authors = DB.column_text stmt 3;
-           prs = DB.column_text stmt 4;
-           snippet = DB.column_text stmt 5;
-         }
-         :: !rows
-     done;
-     DB.finalize stmt |> check_db db;
-     List.rev !rows
-   with exn ->
-     (try DB.finalize stmt |> ignore with _ -> ());
-     raise exn)
+  try
+    let idx = ref 1 in
+    Queue.iter
+      (fun v ->
+        DB.bind_text stmt !idx v |> check_db db;
+        incr idx)
+      params;
+    let rows = ref [] in
+    while DB.step stmt = DB.Rc.ROW do
+      rows :=
+        {
+          version = DB.column_text stmt 0;
+          category = DB.column_text stmt 1;
+          breaking = DB.column_int stmt 2 = 1;
+          authors = DB.column_text stmt 3;
+          prs = DB.column_text stmt 4;
+          snippet = DB.column_text stmt 5;
+        }
+        :: !rows
+    done;
+    DB.finalize stmt |> check_db db;
+    List.rev !rows
+  with exn ->
+    (try DB.finalize stmt |> ignore with _ -> ());
+    raise exn
 
 (* ── formatting ──────────────────────────────────────────────────────────── *)
 
@@ -216,7 +220,12 @@ let nonempty_prs prs =
 
 (** Format one result row into 2–3 IRC lines. *)
 let format_row (r : result_row) : string list =
-  let flag = if r.breaking then " \x02[BREAKING]\x02" else "" in
+  let flag =
+    if r.breaking then
+      " \x02[BREAKING]\x02"
+    else
+      ""
+  in
   let header =
     Printf.sprintf "\x02[%s]\x02 %s%s" r.version (String.trim r.category) flag
   in

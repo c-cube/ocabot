@@ -1,5 +1,5 @@
-(** Tests for Changelog_db: query parsing, search, formatting.
-    Uses an in-memory SQLite DB — no IRC server needed. *)
+(** Tests for Changelog_db: query parsing, search, formatting. Uses an in-memory
+    SQLite DB — no IRC server needed. *)
 
 open Changelog_db
 
@@ -65,7 +65,9 @@ let seed db =
 
 let contains_sub haystack needle =
   let n = String.length haystack and m = String.length needle in
-  let rec go i = i + m <= n && (String.sub haystack i m = needle || go (i + 1)) in
+  let rec go i =
+    i + m <= n && (String.sub haystack i m = needle || go (i + 1))
+  in
   go 0
 
 let n_results db raw = List.length (search db (parse_query raw))
@@ -118,7 +120,8 @@ let test_search_from db () =
   Alcotest.(check bool) "at least 1" true (List.length rows >= 1);
   List.iter
     (fun r ->
-      Alcotest.(check bool) "gabriel in authors" true
+      Alcotest.(check bool)
+        "gabriel in authors" true
         (contains_sub (String.lowercase_ascii r.authors) "gabriel"))
     rows
 
@@ -131,14 +134,15 @@ let test_search_pr_multivalue db () =
   (* prs="10,11": pr:10 and pr:11 match; pr:1 must not (exact boundary) *)
   Alcotest.(check int) "pr:10 => 1" 1 (n_results db "pr:10");
   Alcotest.(check int) "pr:11 => 1" 1 (n_results db "pr:11");
-  Alcotest.(check int) "pr:1 => 0"  0 (n_results db "pr:1")
+  Alcotest.(check int) "pr:1 => 0" 0 (n_results db "pr:1")
 
 let test_search_ver db () =
   let rows = search db (parse_query "ver:5.4") in
   Alcotest.(check int) "2 entries at 5.4" 2 (List.length rows);
   List.iter
     (fun r ->
-      Alcotest.(check bool) "starts with 5.4" true
+      Alcotest.(check bool)
+        "starts with 5.4" true
         (contains_sub r.version "5.4"))
     rows
 
@@ -161,7 +165,8 @@ let test_format_no_results () =
   let f = parse_query "xyzzy" in
   let lines = format_results ~raw:"xyzzy" ~limit:3 f [] in
   Alcotest.(check int) "one line" 1 (List.length lines);
-  Alcotest.(check bool) "contains 'No changelog'" true
+  Alcotest.(check bool)
+    "contains 'No changelog'" true
     (contains_sub (List.hd lines) "No changelog")
 
 let test_format_row_breaking () =
@@ -176,7 +181,8 @@ let test_format_row_breaking () =
     }
   in
   let header = List.hd (format_row r) in
-  Alcotest.(check bool) "header has BREAKING" true
+  Alcotest.(check bool)
+    "header has BREAKING" true
     (contains_sub header "BREAKING")
 
 let test_format_pr_url () =
@@ -194,7 +200,8 @@ let test_format_pr_url () =
   (* header + body + meta = 3 lines *)
   Alcotest.(check int) "3 lines" 3 (List.length lines);
   let meta = List.nth lines 2 in
-  Alcotest.(check bool) "contains pull URL" true
+  Alcotest.(check bool)
+    "contains pull URL" true
     (contains_sub meta "github.com/ocaml/ocaml/pull/13197")
 
 let test_format_no_meta_when_no_authors_no_prs () =
@@ -215,8 +222,8 @@ let test_describe_filters () =
   let s = describe_filters f in
   Alcotest.(check bool) "non-empty" true (s <> "");
   Alcotest.(check bool) "has from:gabriel" true (contains_sub s "from:gabriel");
-  Alcotest.(check bool) "has ver:5.2"      true (contains_sub s "ver:5.2");
-  Alcotest.(check bool) "has dynarray"     true (contains_sub s "dynarray")
+  Alcotest.(check bool) "has ver:5.2" true (contains_sub s "ver:5.2");
+  Alcotest.(check bool) "has dynarray" true (contains_sub s "dynarray")
 
 (* ── suite ──────────────────────────────────────────────────────────────── *)
 
@@ -227,29 +234,32 @@ let () =
     [
       ( "parse_query",
         [
-          Alcotest.test_case "plain term"   `Quick test_parse_plain;
+          Alcotest.test_case "plain term" `Quick test_parse_plain;
           Alcotest.test_case "from: filter" `Quick test_parse_from;
-          Alcotest.test_case "pr: filter"   `Quick test_parse_pr;
-          Alcotest.test_case "ver: filter"  `Quick test_parse_ver;
-          Alcotest.test_case "all filters"  `Quick test_parse_all_filters;
+          Alcotest.test_case "pr: filter" `Quick test_parse_pr;
+          Alcotest.test_case "ver: filter" `Quick test_parse_ver;
+          Alcotest.test_case "all filters" `Quick test_parse_all_filters;
         ] );
       ( "search",
         [
-          Alcotest.test_case "fts"              `Quick (test_search_fts db);
-          Alcotest.test_case "from:"            `Quick (test_search_from db);
-          Alcotest.test_case "pr: single"       `Quick (test_search_pr_single db);
-          Alcotest.test_case "pr: multi-value"  `Quick (test_search_pr_multivalue db);
-          Alcotest.test_case "ver:"             `Quick (test_search_ver db);
-          Alcotest.test_case "no results"       `Quick (test_search_no_results db);
-          Alcotest.test_case "breaking flag"    `Quick (test_search_breaking db);
-          Alcotest.test_case "fts + ver:"       `Quick (test_search_fts_and_ver db);
+          Alcotest.test_case "fts" `Quick (test_search_fts db);
+          Alcotest.test_case "from:" `Quick (test_search_from db);
+          Alcotest.test_case "pr: single" `Quick (test_search_pr_single db);
+          Alcotest.test_case "pr: multi-value" `Quick
+            (test_search_pr_multivalue db);
+          Alcotest.test_case "ver:" `Quick (test_search_ver db);
+          Alcotest.test_case "no results" `Quick (test_search_no_results db);
+          Alcotest.test_case "breaking flag" `Quick (test_search_breaking db);
+          Alcotest.test_case "fts + ver:" `Quick (test_search_fts_and_ver db);
         ] );
       ( "format",
         [
-          Alcotest.test_case "no results msg"        `Quick test_format_no_results;
-          Alcotest.test_case "breaking in header"    `Quick test_format_row_breaking;
-          Alcotest.test_case "pr url in meta"        `Quick test_format_pr_url;
-          Alcotest.test_case "no meta when empty"    `Quick test_format_no_meta_when_no_authors_no_prs;
-          Alcotest.test_case "describe_filters"      `Quick test_describe_filters;
+          Alcotest.test_case "no results msg" `Quick test_format_no_results;
+          Alcotest.test_case "breaking in header" `Quick
+            test_format_row_breaking;
+          Alcotest.test_case "pr url in meta" `Quick test_format_pr_url;
+          Alcotest.test_case "no meta when empty" `Quick
+            test_format_no_meta_when_no_authors_no_prs;
+          Alcotest.test_case "describe_filters" `Quick test_describe_filters;
         ] );
     ]
