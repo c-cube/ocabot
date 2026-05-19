@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-      - run: opam install -t ocabot --deps-only
+      - run: opam install -t ./ocabot.opam --deps-only
       - run: opam exec -- dune build '@install'
       - run: opam exec -- dune runtest --force
 
