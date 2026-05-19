@@ -39,4 +39,4 @@ changelog-search:
 changelog-clean:
 	rm -f changelog.json changelog.db
 
-.PHONY: backups changelog-fetch changelog-import changelog-search changelog-clean
+.PHONY: backups changelog-fetch changelog-import changelog-search changelog-clean format-check
