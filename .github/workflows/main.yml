@@ -24,7 +24,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-      - run: opam install -t ./ocabot.opam --deps-only
+      - run: opam pin calculon --dev -y -n
+      - run: opam pin https://github.com/c-cube/irky.git -y -n
+      - run: apt update && opam install -t ./ocabot.opam --deps-only
       - run: opam exec -- dune build '@install'
       - run: opam exec -- dune runtest --force
 
