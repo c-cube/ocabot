@@ -1,0 +1,4 @@
+(test
+  (name test_changelog)
+  (libraries ocabot_lib sqlite3 alcotest)
+)

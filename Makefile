@@ -7,6 +7,7 @@ build:
 
 test: build
 	@dune runtest --no-buffer --force
+	@echo "Tests passed."
 
 clean:
 	@dune clean

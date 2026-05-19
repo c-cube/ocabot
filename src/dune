@@ -1,6 +1,14 @@
+(library
+  (name ocabot_lib)
+  (wrapped false)
+  (modules changelog_db)
+  (libraries sqlite3 re)
+)
+
 (executable
   (name ocabot)
   (public_name ocabot)
+  (modules ocabot hello plugin_changelog)
   (flags :standard -w +a-4-44-48-29)
-  (libraries eio_posix calculon)
+  (libraries eio_posix calculon ocabot_lib)
 )
