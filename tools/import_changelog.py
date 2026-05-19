@@ -89,25 +89,80 @@ def import_data(conn: sqlite3.Connection, data: dict):
     print(f"Imported {len(rows)} entries across {len(data)} versions.", file=sys.stderr)
 
 
-def search(conn: sqlite3.Connection, query: str, limit: int = 20):
-    cur = conn.execute("""
-        SELECT e.version, e.category, e.text, e.breaking, e.authors, e.prs,
-               snippet(entries_fts, 2, '[', ']', '…', 20) AS snip
-        FROM entries_fts f
-        JOIN entries e ON e.id = f.rowid
-        WHERE entries_fts MATCH ?
-        ORDER BY rank
-        LIMIT ?
-    """, (query, limit))
+FILTER_RE = re.compile(r'(from|pr|ver):([^\s]+)')
+
+
+def parse_query(raw: str):
+    author = None
+    pr = None
+    ver = None
+    for m in FILTER_RE.finditer(raw):
+        key, val = m.group(1), m.group(2)
+        if key == 'from':
+            author = val
+        elif key == 'pr':
+            pr = val
+        elif key == 'ver':
+            ver = val
+    fts = FILTER_RE.sub('', raw).strip()
+    return fts, author, pr, ver
+
+
+def search(conn: sqlite3.Connection, raw: str, limit: int = 20):
+    fts_query, author, pr, ver = parse_query(raw)
+
+    extra = []
+    params = []
+    if fts_query:
+        params.append(fts_query)
+    if author:
+        extra.append("lower(e.authors) LIKE lower('%' || ? || '%')")
+        params.append(author)
+    if pr:
+        extra.append(
+            "(',' || e.prs || ',' LIKE '%,' || ? || ',%'"
+            " OR e.prs = ? OR e.prs LIKE ? || ',%' OR e.prs LIKE '%,' || ?)"
+        )
+        params += [pr, pr, pr, pr]
+    if ver:
+        extra.append("e.version LIKE ? || '%'")
+        params.append(ver)
+
+    where_extra = (" AND " + " AND ".join(extra)) if extra else ""
+
+    if fts_query:
+        sql = f"""
+            SELECT e.version, e.category, e.text, e.breaking, e.authors, e.prs,
+                   snippet(entries_fts, 2, '[', ']', '\u2026', 20) AS snip
+            FROM entries_fts f
+            JOIN entries e ON e.id = f.rowid
+            WHERE entries_fts MATCH ? {where_extra}
+            ORDER BY rank
+            LIMIT {limit}
+        """
+    else:
+        sql = f"""
+            SELECT e.version, e.category, e.text, e.breaking, e.authors, e.prs,
+                   e.text AS snip
+            FROM entries e
+            WHERE 1=1 {where_extra}
+            ORDER BY e.version DESC
+            LIMIT {limit}
+        """
+
+    cur = conn.execute(sql, params)
     rows = cur.fetchall()
-    for version, category, text, breaking, authors, refs, snip in rows:
+    for version, category, text, breaking, authors, prs, snip in rows:
         flag = " [BREAKING]" if breaking else ""
         print(f"[{version}] {category}{flag}")
-        print(f"  {snip}")
+        print(f"  {snip[:200]}")
         if authors:
             print(f"  authors: {authors}")
-        if refs:
-            links = " ".join(f"https://github.com/ocaml/ocaml/issues/{r}" for r in refs.split(",") if r)
+        if prs:
+            links = " ".join(
+                f"https://github.com/ocaml/ocaml/pull/{r}"
+                for r in prs.split(",") if r
+            )
             print(f"  refs: {links}")
         print()
 
