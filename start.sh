@@ -1,2 +1,2 @@
 #!/bin/bash
-source .env && ./_build/default/src/ocabot.exe $@
+dune exec --display=quiet ./src/ocabot.exe -- $@
