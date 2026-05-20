@@ -178,7 +178,8 @@ let test_format_row_single_line db () =
   let rows = search db (parse_query "negative") in
   Alcotest.(check bool) "found" true (rows <> []);
   let line = format_row db (List.hd rows) in
-  Alcotest.(check bool) "single string, no newline" true
+  Alcotest.(check bool)
+    "single string, no newline" true
     (not (contains_sub line "\n"));
   Alcotest.(check bool) "has BREAKING" true (contains_sub line "BREAKING")
 
@@ -186,7 +187,8 @@ let test_format_row_has_pr_url db () =
   let rows = search db (parse_query "pr:13197") in
   Alcotest.(check bool) "found" true (rows <> []);
   let line = format_row db (List.hd rows) in
-  Alcotest.(check bool) "contains pull URL" true
+  Alcotest.(check bool)
+    "contains pull URL" true
     (contains_sub line "github.com/ocaml/ocaml/pull/13197")
 
 let test_format_row_has_author db () =
@@ -212,7 +214,8 @@ let test_format_results_max2 db () =
   let rows = search ~limit:max_results db f in
   let lines = format_results ~raw:"" ~limit:max_results f db rows in
   (* 1 header + up to max_results result lines *)
-  Alcotest.(check bool) "<= 1 + max_results lines" true
+  Alcotest.(check bool)
+    "<= 1 + max_results lines" true
     (List.length lines <= 1 + max_results)
 
 let test_describe_filters () =
@@ -253,11 +256,15 @@ let () =
       ( "format",
         [
           Alcotest.test_case "no results msg" `Quick (test_format_no_results db);
-          Alcotest.test_case "single line" `Quick (test_format_row_single_line db);
-          Alcotest.test_case "pr url in line" `Quick (test_format_row_has_pr_url db);
-          Alcotest.test_case "author in line" `Quick (test_format_row_has_author db);
+          Alcotest.test_case "single line" `Quick
+            (test_format_row_single_line db);
+          Alcotest.test_case "pr url in line" `Quick
+            (test_format_row_has_pr_url db);
+          Alcotest.test_case "author in line" `Quick
+            (test_format_row_has_author db);
           Alcotest.test_case "fits irc_max" `Quick (test_format_row_fits_irc db);
-          Alcotest.test_case "max 2 results" `Quick (test_format_results_max2 db);
+          Alcotest.test_case "max 2 results" `Quick
+            (test_format_results_max2 db);
           Alcotest.test_case "describe_filters" `Quick test_describe_filters;
         ] );
     ]

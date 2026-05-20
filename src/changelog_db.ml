@@ -280,7 +280,7 @@ let truncate ~max s =
   if String.length s <= max then
     s
   else
-    String.sub s 0 (max - 1) ^ "\xe2\x80\xa6"  (* … *)
+    String.sub s 0 (max - 1) ^ "\xe2\x80\xa6" (* … *)
 
 (** Format one result row into a single IRC line. *)
 let format_row db (r : result_row) : string =
@@ -328,10 +328,10 @@ let describe_filters (f : filters) : string =
   in
   String.concat " " parts
 
-(** Format a full result set into IRC lines (at most [max_results] entries,
-    one line each, plus an optional header). *)
-let format_results ~(raw : string) ~(limit : int) (f : filters)
-    (db : DB.db) (rows : result_row list) : string list =
+(** Format a full result set into IRC lines (at most [max_results] entries, one
+    line each, plus an optional header). *)
+let format_results ~(raw : string) ~(limit : int) (f : filters) (db : DB.db)
+    (rows : result_row list) : string list =
   match rows with
   | [] ->
     let q =
