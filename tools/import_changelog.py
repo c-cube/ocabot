@@ -19,17 +19,14 @@ def normalize_version(v: str) -> str:
     return m.group(1) if m else v
 
 
-def format_authors(authors) -> str:
-    if not authors:
-        return ""
-    parts = []
-    for a in authors:
-        parts.append(" ".join(a))
-    return ", ".join(parts)
-
-
 def create_schema(conn: sqlite3.Connection):
     conn.executescript("""
+        CREATE TABLE IF NOT EXISTS authors (
+            id   INTEGER PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE
+        );
+        CREATE INDEX IF NOT EXISTS authors_name ON authors(name);
+
         CREATE TABLE IF NOT EXISTS entries (
             id              INTEGER PRIMARY KEY,
             version         TEXT NOT NULL,
@@ -37,36 +34,52 @@ def create_schema(conn: sqlite3.Connection):
             category        TEXT NOT NULL,
             text            TEXT NOT NULL,
             breaking        INTEGER NOT NULL DEFAULT 0,
-            authors         TEXT,
             prs             TEXT
+        );
+        CREATE INDEX IF NOT EXISTS entries_prs ON entries(prs);
+
+        CREATE TABLE IF NOT EXISTS entry_authors (
+            entry_id  INTEGER NOT NULL REFERENCES entries(id),
+            author_id INTEGER NOT NULL REFERENCES authors(id),
+            PRIMARY KEY (entry_id, author_id)
         );
 
         CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5(
             version,
             category,
             text,
-            authors,
             content='entries',
             content_rowid='id'
         );
 
         CREATE TRIGGER IF NOT EXISTS entries_ai AFTER INSERT ON entries BEGIN
-            INSERT INTO entries_fts(rowid, version, category, text, authors)
-            VALUES (new.id, new.version, new.category, new.text, new.authors);
+            INSERT INTO entries_fts(rowid, version, category, text)
+            VALUES (new.id, new.version, new.category, new.text);
         END;
 
         CREATE TRIGGER IF NOT EXISTS entries_ad AFTER DELETE ON entries BEGIN
-            INSERT INTO entries_fts(entries_fts, rowid, version, category, text, authors)
-            VALUES ('delete', old.id, old.version, old.category, old.text, old.authors);
+            INSERT INTO entries_fts(entries_fts, rowid, version, category, text)
+            VALUES ('delete', old.id, old.version, old.category, old.text);
         END;
     """)
 
 
+def get_or_create_author(conn: sqlite3.Connection, name: str) -> int:
+    row = conn.execute("SELECT id FROM authors WHERE name = ?", (name,)).fetchone()
+    if row:
+        return row[0]
+    cur = conn.execute("INSERT INTO authors(name) VALUES (?)", (name,))
+    return cur.lastrowid
+
+
 def import_data(conn: sqlite3.Connection, data: dict):
+    conn.execute("DELETE FROM entry_authors")
     conn.execute("DELETE FROM entries")
     conn.execute("DELETE FROM entries_fts")
+    conn.execute("DELETE FROM authors")
 
-    rows = []
+    entry_rows = []
+    author_links = []  # (entry index, author name)
     for version_full, categories in data.items():
         version = normalize_version(version_full)
         for category, entries in categories.items():
@@ -76,17 +89,30 @@ def import_data(conn: sqlite3.Connection, data: dict):
                     continue
                 text = entry["text"].strip()
                 breaking = 1 if entry.get("breaking change") else 0
-                authors = format_authors(entry.get("authors", []))
                 refs = entry.get("references", [])
                 prs = ",".join(str(r) for r in refs)
-                rows.append((version, version_full, category, text, breaking, authors, prs))
+                idx = len(entry_rows)
+                entry_rows.append((version, version_full, category, text, breaking, prs))
+                for a in entry.get("authors", []):
+                    author_links.append((idx, " ".join(a)))
 
     conn.executemany(
-        "INSERT INTO entries(version, version_full, category, text, breaking, authors, prs) "
-        "VALUES (?,?,?,?,?,?,?)",
-        rows
+        "INSERT INTO entries(version, version_full, category, text, breaking, prs) "
+        "VALUES (?,?,?,?,?,?)",
+        entry_rows
     )
-    print(f"Imported {len(rows)} entries across {len(data)} versions.", file=sys.stderr)
+    # fetch the inserted ids in order
+    first_id = conn.execute("SELECT min(id) FROM entries").fetchone()[0]
+    # entry at index i has id = first_id + i (rows inserted in order)
+    for idx, name in author_links:
+        entry_id = first_id + idx
+        author_id = get_or_create_author(conn, name)
+        conn.execute(
+            "INSERT OR IGNORE INTO entry_authors(entry_id, author_id) VALUES (?,?)",
+            (entry_id, author_id)
+        )
+
+    print(f"Imported {len(entry_rows)} entries across {len(data)} versions.", file=sys.stderr)
 
 
 FILTER_RE = re.compile(r'(from|pr|ver):([^\s]+)')
@@ -108,6 +134,16 @@ def parse_query(raw: str):
     return fts, author, pr, ver
 
 
+def get_entry_authors(conn: sqlite3.Connection, entry_id: int) -> list[str]:
+    rows = conn.execute(
+        "SELECT a.name FROM authors a"
+        " JOIN entry_authors ea ON ea.author_id = a.id"
+        " WHERE ea.entry_id = ?",
+        (entry_id,)
+    ).fetchall()
+    return [r[0] for r in rows]
+
+
 def search(conn: sqlite3.Connection, raw: str, limit: int = 20):
     fts_query, author, pr, ver = parse_query(raw)
 
@@ -116,7 +152,10 @@ def search(conn: sqlite3.Connection, raw: str, limit: int = 20):
     if fts_query:
         params.append(fts_query)
     if author:
-        extra.append("lower(e.authors) LIKE lower('%' || ? || '%')")
+        extra.append(
+            "EXISTS (SELECT 1 FROM entry_authors ea JOIN authors a ON a.id = ea.author_id"
+            " WHERE ea.entry_id = e.id AND lower(a.name) LIKE lower('%' || ? || '%'))"
+        )
         params.append(author)
     if pr:
         extra.append(
@@ -132,7 +171,7 @@ def search(conn: sqlite3.Connection, raw: str, limit: int = 20):
 
     if fts_query:
         sql = f"""
-            SELECT e.version, e.category, e.text, e.breaking, e.authors, e.prs,
+            SELECT e.id, e.version, e.category, e.text, e.breaking, e.prs,
                    snippet(entries_fts, 2, '[', ']', '\u2026', 20) AS snip
             FROM entries_fts f
             JOIN entries e ON e.id = f.rowid
@@ -142,7 +181,7 @@ def search(conn: sqlite3.Connection, raw: str, limit: int = 20):
         """
     else:
         sql = f"""
-            SELECT e.version, e.category, e.text, e.breaking, e.authors, e.prs,
+            SELECT e.id, e.version, e.category, e.text, e.breaking, e.prs,
                    e.text AS snip
             FROM entries e
             WHERE 1=1 {where_extra}
@@ -152,12 +191,13 @@ def search(conn: sqlite3.Connection, raw: str, limit: int = 20):
 
     cur = conn.execute(sql, params)
     rows = cur.fetchall()
-    for version, category, text, breaking, authors, prs, snip in rows:
+    for entry_id, version, category, text, breaking, prs, snip in rows:
         flag = " [BREAKING]" if breaking else ""
         print(f"[{version}] {category}{flag}")
         print(f"  {snip[:200]}")
+        authors = get_entry_authors(conn, entry_id)
         if authors:
-            print(f"  authors: {authors}")
+            print(f"  authors: {', '.join(authors)}")
         if prs:
             links = " ".join(
                 f"https://github.com/ocaml/ocaml/pull/{r}"
