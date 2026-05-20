@@ -12,6 +12,7 @@ depends: [
     "base-unix"
     "eio_posix"
     "calculon" { >= "1.0" }
+    "alcotest" {test}
 ]
 tags: [ "irc" "bot" ]
 homepage: "https://github.com/c-cube/ocabot"
