@@ -19,6 +19,7 @@ let config =
     username = "ocabot";
     realname = "ocabot";
     nick = "ocabot";
+    check_cert = false;
     channels = [ "#ocaml" ];
     tls = true;
     sasl = true;
