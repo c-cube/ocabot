@@ -20,7 +20,7 @@ let seed db =
         category = "Standard library";
         text = "Add the Dynarray module to the stdlib.";
         breaking = false;
-        authors = "Gabriel Scherer, Simon Cruanes";
+        authors = [ "Gabriel Scherer"; "Simon Cruanes" ];
         prs = "11563";
       };
       {
@@ -29,7 +29,7 @@ let seed db =
         category = "Standard library";
         text = "Dynarray.blit, extends destination dynarray.";
         breaking = false;
-        authors = "Gabriel Scherer";
+        authors = [ "Gabriel Scherer" ];
         prs = "13197";
       };
       {
@@ -38,7 +38,7 @@ let seed db =
         category = "Language features";
         text = "Added immutable arrays (iarray type, Iarray module).";
         breaking = false;
-        authors = "Antal Spector-Zabusky, Olivier Nicole";
+        authors = [ "Antal Spector-Zabusky"; "Olivier Nicole" ];
         prs = "13097";
       };
       {
@@ -47,7 +47,7 @@ let seed db =
         category = "Standard library";
         text = "Do not raise Invalid_argument on negative List.take.";
         breaking = true;
-        authors = "Daniel Buenzli";
+        authors = [ "Daniel Buenzli" ];
         prs = "14124";
       };
       {
@@ -56,7 +56,7 @@ let seed db =
         category = "Runtime system";
         text = "Fix potential segfault in GC compaction.";
         breaking = false;
-        authors = "Nick Barnes";
+        authors = [ "Nick Barnes" ];
         prs = "10,11";
       };
     ]
@@ -72,7 +72,7 @@ let contains_sub haystack needle =
 
 let n_results db raw = List.length (search db (parse_query raw))
 
-(* ── parse_query tests ──────────────────────────────────────────────────── *)
+(* ── parse_query tests ───────────────────────────────────────────────────────── *)
 
 let test_parse_plain () =
   let f = parse_query "dynarray" in
@@ -103,7 +103,7 @@ let test_parse_all_filters () =
   Alcotest.(check (option string)) "pr" (Some "11563") f.pr;
   Alcotest.(check (option string)) "ver" (Some "5.2") f.ver
 
-(* ── search tests ───────────────────────────────────────────────────────── *)
+(* ── search tests ─────────────────────────────────────────────────────────────── *)
 
 let test_search_fts db () =
   let rows = search db (parse_query "dynarray") in
@@ -118,11 +118,15 @@ let test_search_fts db () =
 let test_search_from db () =
   let rows = search db (parse_query "dynarray from:gabriel") in
   Alcotest.(check bool) "at least 1" true (List.length rows >= 1);
+  (* verify via authors table *)
   List.iter
     (fun r ->
+      let names = fetch_authors db r.id in
       Alcotest.(check bool)
         "gabriel in authors" true
-        (contains_sub (String.lowercase_ascii r.authors) "gabriel"))
+        (List.exists
+           (fun n -> contains_sub (String.lowercase_ascii n) "gabriel")
+           names))
     rows
 
 let test_search_pr_single db () =
@@ -159,63 +163,57 @@ let test_search_fts_and_ver db () =
   Alcotest.(check int) "1 match" 1 (List.length rows);
   Alcotest.(check string) "version" "5.3.0" (List.hd rows).version
 
-(* ── formatting tests ───────────────────────────────────────────────────── *)
+(* ── formatting tests ─────────────────────────────────────────────────────────── *)
 
-let test_format_no_results () =
+let test_format_no_results db () =
   let f = parse_query "xyzzy" in
-  let lines = format_results ~raw:"xyzzy" ~limit:3 f [] in
+  let lines = format_results ~raw:"xyzzy" ~limit:2 f db [] in
   Alcotest.(check int) "one line" 1 (List.length lines);
   Alcotest.(check bool)
     "contains 'No changelog'" true
     (contains_sub (List.hd lines) "No changelog")
 
-let test_format_row_breaking () =
-  let r =
-    {
-      version = "5.4.0";
-      category = "Standard library";
-      breaking = true;
-      authors = "Alice";
-      prs = "99";
-      snippet = "something broke";
-    }
-  in
-  let header = List.hd (format_row r) in
-  Alcotest.(check bool)
-    "header has BREAKING" true
-    (contains_sub header "BREAKING")
+let test_format_row_single_line db () =
+  (* row with breaking flag: result must be a single line *)
+  let rows = search db (parse_query "negative") in
+  Alcotest.(check bool) "found" true (rows <> []);
+  let line = format_row db (List.hd rows) in
+  Alcotest.(check bool) "single string, no newline" true
+    (not (contains_sub line "\n"));
+  Alcotest.(check bool) "has BREAKING" true (contains_sub line "BREAKING")
 
-let test_format_pr_url () =
-  let r =
-    {
-      version = "5.3.0";
-      category = "Standard library";
-      breaking = false;
-      authors = "Bob";
-      prs = "13197";
-      snippet = "Dynarray.blit";
-    }
-  in
-  let lines = format_row r in
-  (* header + body + meta = 3 lines *)
-  Alcotest.(check int) "3 lines" 3 (List.length lines);
-  let meta = List.nth lines 2 in
-  Alcotest.(check bool)
-    "contains pull URL" true
-    (contains_sub meta "github.com/ocaml/ocaml/pull/13197")
+let test_format_row_has_pr_url db () =
+  let rows = search db (parse_query "pr:13197") in
+  Alcotest.(check bool) "found" true (rows <> []);
+  let line = format_row db (List.hd rows) in
+  Alcotest.(check bool) "contains pull URL" true
+    (contains_sub line "github.com/ocaml/ocaml/pull/13197")
 
-let test_format_no_meta_when_no_authors_no_prs () =
-  let r =
-    {
-      version = "5.0.0";
-      category = "Misc";
-      breaking = false;
-      authors = "";
-      prs = "";
-      snippet = "some text";
-    }
-  in
-  Alcotest.(check int) "2 lines (no meta)" 2 (List.length (format_row r))
+let test_format_row_has_author db () =
+  let rows = search db (parse_query "pr:13197") in
+  let line = format_row db (List.hd rows) in
+  Alcotest.(check bool) "contains 'by'" true (contains_sub line " by ")
+
+let test_format_row_fits_irc db () =
+  (* every formatted line must fit within irc_max *)
+  let rows = search ~limit:10 db (parse_query "") in
+  List.iter
+    (fun r ->
+      let line = format_row db r in
+      Alcotest.(check bool)
+        (Printf.sprintf "fits irc_max: %d chars" (String.length line))
+        true
+        (String.length line <= irc_max))
+    rows
+
+let test_format_results_max2 db () =
+  (* should return header + at most max_results lines *)
+  let f = parse_query "" in
+  let rows = search ~limit:max_results db f in
+  let lines = format_results ~raw:"" ~limit:max_results f db rows in
+  (* 1 header + up to max_results result lines *)
+  Alcotest.(check bool) "<= 1 + max_results lines" true
+    (List.length lines <= 1 + max_results)
 
 let test_describe_filters () =
   let f = parse_query "dynarray from:gabriel ver:5.2" in
@@ -225,7 +223,7 @@ let test_describe_filters () =
   Alcotest.(check bool) "has ver:5.2" true (contains_sub s "ver:5.2");
   Alcotest.(check bool) "has dynarray" true (contains_sub s "dynarray")
 
-(* ── suite ──────────────────────────────────────────────────────────────── *)
+(* ── suite ────────────────────────────────────────────────────────────────────── *)
 
 let () =
   let db = make_db () in
@@ -254,12 +252,12 @@ let () =
         ] );
       ( "format",
         [
-          Alcotest.test_case "no results msg" `Quick test_format_no_results;
-          Alcotest.test_case "breaking in header" `Quick
-            test_format_row_breaking;
-          Alcotest.test_case "pr url in meta" `Quick test_format_pr_url;
-          Alcotest.test_case "no meta when empty" `Quick
-            test_format_no_meta_when_no_authors_no_prs;
+          Alcotest.test_case "no results msg" `Quick (test_format_no_results db);
+          Alcotest.test_case "single line" `Quick (test_format_row_single_line db);
+          Alcotest.test_case "pr url in line" `Quick (test_format_row_has_pr_url db);
+          Alcotest.test_case "author in line" `Quick (test_format_row_has_author db);
+          Alcotest.test_case "fits irc_max" `Quick (test_format_row_fits_irc db);
+          Alcotest.test_case "max 2 results" `Quick (test_format_results_max2 db);
           Alcotest.test_case "describe_filters" `Quick test_describe_filters;
         ] );
     ]

@@ -21,7 +21,7 @@ let make_cmd (db : DB.db) : Command.t =
         ]
       | rows ->
         Changelog_db.format_results ~raw ~limit:Changelog_db.max_results filters
-          rows)
+          db rows)
 
 let open_db () : DB.db =
   let db = DB.db_open db_file in
