@@ -38,3 +38,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - run: opam exec -- make format-check
+
+  docker:
+    name: docker image
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    uses: c-cube/c-cube-common/.github/workflows/docker-publish.yml@170b6600d0c23345f76d93ddb123462f982f9f6c
