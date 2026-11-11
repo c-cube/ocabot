@@ -30,9 +30,10 @@ let l =
 Printf.printf "there are %d broken chunks\n%!"
   (l
   |> List.filter (function
-       | _, `Malformed _ -> true
-       | _ -> false)
+    | _, `Malformed _ -> true
+    | _ -> false)
   |> List.length)
+;;
 
 (* function that repairs a single malformed string *)
 let repair1 s : string option =
@@ -56,16 +57,16 @@ let rec repair s : string option =
   let len = String.length s in
   2 -- len
   |> Sequence.filter_map (fun i ->
-         let s1 = String.sub s 0 i in
-         let s2 = String.sub s i (len - i) in
-         match repair1 s1 with
-         | Some u1 when s2 = "" -> Some u1
-         | Some u1 when CCString.for_all is_ascii s2 -> Some (u1 ^ s2)
-         | Some u1 ->
-           (match repair s2 with
-           | Some u2 -> Some (u1 ^ u2)
-           | None -> None)
-         | None -> None)
+      let s1 = String.sub s 0 i in
+      let s2 = String.sub s i (len - i) in
+      match repair1 s1 with
+      | Some u1 when s2 = "" -> Some u1
+      | Some u1 when CCString.for_all is_ascii s2 -> Some (u1 ^ s2)
+      | Some u1 ->
+        (match repair s2 with
+        | Some u2 -> Some (u1 ^ u2)
+        | None -> None)
+      | None -> None)
   |> Sequence.head
 
 let res =

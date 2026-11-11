@@ -30,8 +30,8 @@ let config =
 let refresh_hours () =
   match Sys.getenv_opt "CHANGLEOG_REFRESH_HOURS" with
   | None -> 24
-  | Some s -> (
-    match int_of_string_opt (String.trim s) with
+  | Some s ->
+    (match int_of_string_opt (String.trim s) with
     | Some h when h > 0 -> h
     | _ ->
       Logs.warn (fun k -> k "invalid CHANGLEOG_REFRESH_HOURS %S, using 24" s);

@@ -27,7 +27,9 @@ let meta_get db key =
   v
 
 let meta_set db key value =
-  let stmt = DB.prepare db {|INSERT OR REPLACE INTO meta(key, value) VALUES (?,?)|} in
+  let stmt =
+    DB.prepare db {|INSERT OR REPLACE INTO meta(key, value) VALUES (?,?)|}
+  in
   DB.bind_text stmt 1 key |> check_db db;
   DB.bind_text stmt 2 value |> check_db db;
   DB.step stmt |> check_db db;

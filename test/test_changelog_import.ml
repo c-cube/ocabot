@@ -40,11 +40,15 @@ let count db sql =
   n
 
 let test_normalize () =
-  Alcotest.(check string) "release" "5.4.0" (normalize_version "OCaml 5.4.0 (9 Oct 2025):");
+  Alcotest.(check string)
+    "release" "5.4.0"
+    (normalize_version "OCaml 5.4.0 (9 Oct 2025):");
   Alcotest.(check string) "rc" "5.3.1" (normalize_version "5.3.1-rc1");
   Alcotest.(check string) "two components" "5.2" (normalize_version "OCaml 5.2");
   Alcotest.(check string) "working" "working" (normalize_version "working:");
-  Alcotest.(check string) "working prefix" "working" (normalize_version "working-5.5 branch:");
+  Alcotest.(check string)
+    "working prefix" "working"
+    (normalize_version "working-5.5 branch:");
   Alcotest.(check string) "no version" "hotfix" (normalize_version "hotfix")
 
 let test_parse () =
@@ -52,7 +56,8 @@ let test_parse () =
   Alcotest.(check int) "entry count" 4 (List.length entries);
   let sorted =
     List.stable_sort
-      (fun a b -> compare (a.version_full, a.category) (b.version_full, b.category))
+      (fun a b ->
+        compare (a.version_full, a.category) (b.version_full, b.category))
       entries
   in
   let runtime = List.nth sorted 0 in
@@ -76,7 +81,8 @@ let test_import_and_search () =
   import ~sha256:"hash1" db (parse (Yojson.Basic.from_string json));
   Alcotest.(check int) "entries" 4 (count db "SELECT count(*) FROM entries");
   Alcotest.(check int) "authors" 2 (count db "SELECT count(*) FROM authors");
-  Alcotest.(check int) "author links" 2
+  Alcotest.(check int)
+    "author links" 2
     (count db "SELECT count(*) FROM entry_authors");
   let fts = search db (parse_query "dynarray") in
   Alcotest.(check int) "fts match" 1 (List.length fts);
@@ -89,27 +95,31 @@ let test_import_and_search () =
   Alcotest.(check int) "pr filter" 1 (List.length by_pr);
   let by_ver = search db (parse_query "ver:working") in
   Alcotest.(check int) "ver filter" 1 (List.length by_ver);
-  Alcotest.(check (option string)) "meta sha256" (Some "hash1")
-    (meta_get db "sha256")
+  Alcotest.(check (option string))
+    "meta sha256" (Some "hash1") (meta_get db "sha256")
 
 let test_reimport () =
   let db = make_db () in
   let entries = parse (Yojson.Basic.from_string json) in
   import ~sha256:"abc" ~etag:"W/\"1\"" db entries;
   import ~sha256:"abc" ~etag:"W/\"1\"" db entries;
-  Alcotest.(check int) "entries still 4" 4 (count db "SELECT count(*) FROM entries");
-  Alcotest.(check int) "authors still 2" 2 (count db "SELECT count(*) FROM authors");
-  Alcotest.(check (option string)) "sha256 stored" (Some "abc")
-    (meta_get db "sha256");
-  Alcotest.(check (option string)) "etag stored" (Some "W/\"1\"")
-    (meta_get db "etag")
+  Alcotest.(check int)
+    "entries still 4" 4
+    (count db "SELECT count(*) FROM entries");
+  Alcotest.(check int)
+    "authors still 2" 2
+    (count db "SELECT count(*) FROM authors");
+  Alcotest.(check (option string))
+    "sha256 stored" (Some "abc") (meta_get db "sha256");
+  Alcotest.(check (option string))
+    "etag stored" (Some "W/\"1\"") (meta_get db "etag")
 
 let () =
   let open Alcotest in
   run "changelog_import"
     [
-      ("normalize", [ test_case "normalize_version" `Quick test_normalize ]);
-      ("parse", [ test_case "json to entries" `Quick test_parse ]);
-      ("import", [ test_case "import + search" `Quick test_import_and_search ]);
-      ("reimport", [ test_case "idempotent import" `Quick test_reimport ]);
+      "normalize", [ test_case "normalize_version" `Quick test_normalize ];
+      "parse", [ test_case "json to entries" `Quick test_parse ];
+      "import", [ test_case "import + search" `Quick test_import_and_search ];
+      "reimport", [ test_case "idempotent import" `Quick test_reimport ];
     ]
