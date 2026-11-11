@@ -1,0 +1,5 @@
+.git
+.github
+_build
+*.db
+*.json
