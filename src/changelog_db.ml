@@ -14,9 +14,31 @@ let check_db db rc =
 
 let exec1 db sql = DB.exec db sql |> check_db db
 
+let meta_get db key =
+  let sel = DB.prepare db {|SELECT value FROM meta WHERE key = ?|} in
+  DB.bind_text sel 1 key |> check_db db;
+  let v =
+    if DB.step sel = DB.Rc.ROW then
+      Some (DB.column_text sel 0)
+    else
+      None
+  in
+  DB.finalize sel |> check_db db;
+  v
+
+let meta_set db key value =
+  let stmt = DB.prepare db {|INSERT OR REPLACE INTO meta(key, value) VALUES (?,?)|} in
+  DB.bind_text stmt 1 key |> check_db db;
+  DB.bind_text stmt 2 value |> check_db db;
+  DB.step stmt |> check_db db;
+  DB.finalize stmt |> check_db db
+
 (* ── schema ──────────────────────────────────────────────────────────────── *)
 
 let prepare_db (db : DB.db) =
+  exec1 db "PRAGMA journal_mode=WAL";
+  exec1 db
+    {|CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)|};
   exec1 db
     {|CREATE TABLE IF NOT EXISTS authors (
         id   INTEGER PRIMARY KEY,

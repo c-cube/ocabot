@@ -23,23 +23,24 @@ let make_cmd (db : DB.db) : Command.t =
         Changelog_db.format_results ~raw ~limit:Changelog_db.max_results filters
           db rows)
 
-let open_db () : DB.db =
+let open_db ~db_file () : DB.db =
   let db = DB.db_open db_file in
   Changelog_db.prepare_db db;
+  DB.busy_timeout db 5_000;
   db
 
-let plugin : Plugin.t =
+let plugin ~db_file : Plugin.t =
   Plugin.stateful ~name:"changelog"
-    ~commands:(fun db -> [ make_cmd db ])
+    ~commands:(fun db -> [ make_cmd !db ])
     ~to_json:(fun _ -> None)
     ~of_json:(fun _cb _json ->
-      try Ok (open_db ())
+      try Ok (ref (open_db ~db_file ()))
       with exn ->
         Error
           (Printf.sprintf "failed to open %s: %s" db_file
              (Printexc.to_string exn)))
     ~stop:(fun db ->
-      while not (DB.db_close db) do
+      while not (DB.db_close !db) do
         ()
       done)
     ()

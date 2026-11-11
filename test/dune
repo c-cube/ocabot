@@ -1,3 +1,7 @@
 (test
  (name test_changelog)
  (libraries ocabot_lib sqlite3 alcotest))
+
+(test
+ (name test_changelog_import)
+ (libraries ocabot_lib sqlite3 yojson alcotest))

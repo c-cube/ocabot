@@ -1,8 +1,8 @@
 (library
  (name ocabot_lib)
  (wrapped false)
- (modules changelog_db)
- (libraries sqlite3 re))
+ (modules changelog_db changelog_import)
+ (libraries sqlite3 re containers ezcurl yojson sha logs))
 
 (executable
  (name ocabot)

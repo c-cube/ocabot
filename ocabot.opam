@@ -12,6 +12,13 @@ depends: [
     "base-unix"
     "eio_posix"
     "calculon" { >= "1.0" }
+    "sqlite3"
+    "re"
+    "logs"
+    "ezcurl"
+    "yojson"
+    "containers"
+    "sha"
     "alcotest" {test}
 ]
 tags: [ "irc" "bot" ]

@@ -1,5 +1,3 @@
-CHANGELOG_URL = https://raw.githubusercontent.com/Octachron/ocaml-changelog-analyzer/refs/heads/main/refs/changes.json
-
 all: build test
 
 build:
@@ -25,18 +23,7 @@ backups:
 	#@echo "doing backups of all .json files…"
 	./tools/save.sh *.json
 
-changelog.json:
-	curl -fsSL '$(CHANGELOG_URL)' -o changelog.json
-
-changelog-fetch: changelog.json
-
-changelog-import: changelog.json
-	python3 tools/import_changelog.py import
-
-changelog-search:
-	@python3 tools/import_changelog.py search $(QUERY)
-
 changelog-clean:
-	rm -f changelog.json changelog.db
+	rm -f changelog.db changelog.json
 
-.PHONY: backups changelog-fetch changelog-import changelog-search changelog-clean format-check
+.PHONY: backups changelog-clean format-check

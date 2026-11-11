@@ -10,7 +10,7 @@ ARG OPAM_REPO_COMMIT
 ARG CALCULON_COMMIT
 ARG IRKY_COMMIT
 RUN apk add --no-cache ca-certificates curl git unzip build-base pkgconf m4 \
-      opam sqlite-dev openssl-dev gmp-dev liburing-dev linux-headers
+      opam sqlite-dev openssl-dev gmp-dev liburing-dev linux-headers curl-dev
 ENV OPAMROOT=/root/.opam OPAMSWITCH=/root/w OPAMYES=1 OPAMCONFIRMLEVEL=unsafe-yes
 # deterministically setup switch from a commit of opam-repo
 RUN git init /tmp/opam-repo && cd /tmp/opam-repo && \
@@ -30,7 +30,7 @@ RUN git init /tmp/irky && cd /tmp/irky && \
     git checkout FETCH_HEAD && \
     opam pin add -y -n --no-depexts /tmp/irky && \
     opam pin add -y -n --no-depexts /tmp/calculon && \
-    opam install --no-depexts dune calculon eio_posix && \
+    opam install --no-depexts dune calculon eio_posix ezcurl sha && \
     rm -rf /tmp/opam-repo /tmp/irky /tmp/calculon
 
 WORKDIR /src
@@ -39,9 +39,7 @@ RUN opam exec -- dune build --profile=release src/ocabot.exe && \
     strip _build/default/src/ocabot.exe
 
 FROM alpine:${ALPINE_VERSION} AS prod
-RUN apk add --no-cache sqlite-libs libssl3 gmp liburing ca-certificates python3 curl
+RUN apk add --no-cache sqlite-libs libssl3 gmp liburing ca-certificates libcurl
 COPY --from=build /src/_build/default/src/ocabot.exe /usr/local/bin/ocabot
-COPY tools/import_changelog.py /usr/local/lib/ocabot/import_changelog.py
-COPY docker/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 WORKDIR /data
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/ocabot"]
