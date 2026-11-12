@@ -11,7 +11,7 @@ depends: [
     "dune" {build & >= "3.0"}
     "base-unix"
     "eio_posix"
-    "calculon" { >= "1.0" }
+    "calculon" { >= "0.9" & < "1.0" }
     "sqlite3"
     "re"
     "logs"
