@@ -26,11 +26,9 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: true
-      - run: opam pin add -y -n --no-depexts vendor/calculon
-      - run: opam pin add -y -n --no-depexts vendor/irky
-      - run: apt update && opam install -t ./ocabot.opam --deps-only
+      - run: apt update && opam install -t . ./vendor/calculon/calculon.opam ./vendor/calculon/calculon-web.opam ./vendor/irky/irky.opam ./vendor/irky/irky-eio.opam --deps-only
       - run: opam exec -- dune build '@install'
-      - run: opam exec -- dune runtest --force
+      - run: opam exec -- dune runtest test --force
 
   format:
     name: format
@@ -49,3 +47,5 @@ jobs:
       contents: read
       packages: write
     uses: c-cube/c-cube-common/.github/workflows/docker-publish.yml@170b6600d0c23345f76d93ddb123462f982f9f6c
+    with:
+      submodules: true
