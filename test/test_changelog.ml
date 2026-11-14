@@ -163,6 +163,33 @@ let test_search_fts_and_ver db () =
   Alcotest.(check int) "1 match" 1 (List.length rows);
   Alcotest.(check string) "version" "5.3.0" (List.hd rows).version
 
+let test_search_dotted_term db () =
+  (* regression: "." must not be parsed as FTS5 query syntax *)
+  let rows = search db (parse_query "Dynarray.blit") in
+  Alcotest.(check bool) "found" true (rows <> []);
+  Alcotest.(check string) "version" "5.3.0" (List.hd rows).version
+
+let test_search_multi_word db () =
+  Alcotest.(check int) "both terms" 1 (n_results db "dynarray blit");
+  Alcotest.(check int) "term1 only" 2 (n_results db "dynarray")
+
+let test_search_operator_soup db () =
+  (* FTS5 operators in raw user input must be neutralized, not crash *)
+  List.iter
+    (fun q ->
+      Alcotest.(check bool)
+        (Printf.sprintf "no crash on %S" q)
+        true
+        (n_results db q >= 0))
+    [
+      "dynarray*";
+      "\"dynarray\"";
+      "(dynarray)";
+      "dynarray -blit";
+      "dynarray OR iarray";
+      "say \"hi\"";
+    ]
+
 (* ── formatting tests ─────────────────────────────────────────────────────────── *)
 
 let test_format_no_results db () =
@@ -252,6 +279,10 @@ let () =
           Alcotest.test_case "no results" `Quick (test_search_no_results db);
           Alcotest.test_case "breaking flag" `Quick (test_search_breaking db);
           Alcotest.test_case "fts + ver:" `Quick (test_search_fts_and_ver db);
+          Alcotest.test_case "dotted term" `Quick (test_search_dotted_term db);
+          Alcotest.test_case "multi word" `Quick (test_search_multi_word db);
+          Alcotest.test_case "operator soup" `Quick
+            (test_search_operator_soup db);
         ] );
       ( "format",
         [

@@ -168,6 +168,17 @@ let re_filter =
           group (rep1 (compl [ space ]));
         ])
 
+(* FTS5 query syntax (".", "*", quotes, AND/OR/…) must not be applied to raw
+   user input: quote each token as a phrase literal; spaces keep the implicit
+   AND between tokens. *)
+let fts_escape q =
+  String.split_on_char ' ' q
+  |> List.filter (fun t -> t <> "")
+  |> List.map (fun t ->
+      let halves = String.split_on_char '"' t in
+      "\"" ^ String.concat "\"\"" halves ^ "\"")
+  |> String.concat " "
+
 let parse_query raw : filters =
   let author = ref None in
   let pr = ref None in
@@ -219,7 +230,7 @@ let search ?(limit = max_results) (db : DB.db) (f : filters) : result_row list =
   let bind v = Queue.add v params in
 
   let use_fts = f.fts_query <> "" in
-  if use_fts then bind f.fts_query;
+  if use_fts then bind (fts_escape f.fts_query);
 
   (match f.author with
   | None -> ()
